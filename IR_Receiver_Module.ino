@@ -1,4 +1,3 @@
-#include <Arduino.h>
 // ESP32 NEC Infrared Decoding (No External Libraries)
 // Decode NEC protocol with strict timing requirements
 const int IR = 19;  // IR receiver data pin
@@ -19,7 +18,7 @@ unsigned long readPulse(int level, unsigned long timeout = 20000) {
 }
 
 void setup() {
-  Serial.begin(115200);  // Initialize serial communication at 9600 baud rate
+  Serial.begin(9600);  // Initialize serial communication at 9600 baud rate
   pinMode(IR, INPUT);  // Set IR pin as input
   Serial.println("NEC decoder started...");
 }
