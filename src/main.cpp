@@ -25,7 +25,14 @@ int speedStep = 1; // Step size for adjusting speed
 int currentAngle = 133; // Start at center position
 
 // TO DO: Create an enum for KeyCodes to improve readability.
-
+enum KeyCodes : uint32_t {
+    FORWARD = 0xFF629D,
+    REVERSE = 0xFFA857,
+    LEFT = 0xFF22DD,
+    RIGHT = 0xFFC23D,
+    STOP = 0xFF02FD,
+    REPEAT = 0xFFFFFFFF
+};
 
 Servo servo1;
 IRrecv irrecv(IR_RECEIVE_PIN);
@@ -33,56 +40,22 @@ IRrecv irrecv(IR_RECEIVE_PIN);
 // Create a decode_results object
 decode_results results;
 
+void handleCommand(uint64_t result);  // FORWARD DECLARATION
 
-void stop() {
-    digitalWrite(motor1A, LOW);
-    digitalWrite(motor2A, LOW);
-    ledcWrite(enableA, 0);
-}
-
-// Need to determine the lowest speed value and the increment steps for the motor to achieve a smooth acceleration and deceleration.
-void forward(int spd, int rtime){
-    digitalWrite(motor1A, HIGH);
-    digitalWrite(motor2A, LOW);
-    ledcWrite(enableA, spd);
-    delay(rtime);
-}
-    
-
-void reverse(int spd, int rtime){
-    digitalWrite(motor1A, LOW);
-    digitalWrite(motor2A, HIGH);
-    ledcWrite(enableA, spd);
-    delay(rtime);
-}
-
-void turnLeft() {
-    if (currentAngle > maxLeft) {
-        currentAngle -= turnStep;
-        servo1.write(currentAngle);
-        Serial.print("Turning Left: ");
-        Serial.println(currentAngle);
-    }
-}
-
-
-void turnRight() {
-    // Finish this function to turn right, similar to turnLeft but in the opposite direction
-}
 
 void handleRepeat(uint32_t key) {
     switch (key) {
-        case 0xFF629D:
-            handleCommand(0xFF629D);
+        case FORWARD:
+            handleCommand(FORWARD);
             Serial.println("REPEAT: FORWARD");
             break;
-        case 0xFFA857:
+        case REVERSE:
             Serial.println("REPEAT: REVERSE");
             break;
-        case 0xFF22DD:
+        case LEFT:
             Serial.println("REPEAT: TURN LEFT");
             break;
-        case 0xFFC23D:
+        case RIGHT:
             Serial.println("REPEAT: TURN RIGHT");
             break;
     }
@@ -95,45 +68,65 @@ void handleCommand(uint64_t result) {
     static unsigned long lastRepeatTime = 0;
     static int speed = 0;
 
-    if (val != 0xFFFFFFFF) {
-        lastValidKey = val; // Store the last valid key
-    }
+    // if (val != REPEAT) {
+    //     lastValidKey = val; // Store the last valid key
+    // }
 
     switch(val) {
-        case 0xFF629D:
+        case FORWARD:
+            if (lastValidKey == REVERSE) speed = minSpeed; // Direction change
             if (speed == 255) break;
             if (speed < 255) speed += speedStep;
             if (speed > 255) speed = 255; // Cap the speed at 255
             if (speed < minSpeed) speed = minSpeed; // Ensure speed is above minimum threshold
+            lastValidKey = val; // Store the last valid key
 
             digitalWrite(motor1A, HIGH);
             digitalWrite(motor2A, LOW);
             ledcWrite(enableA, speed);
             Serial.println("FORWARD");
             break;
-        case 0xFFA857:
-            reverse(255, 3000);
+        case REVERSE:
+            if (lastValidKey == FORWARD) speed = minSpeed; // Direction change
+            if (speed == 255) break;
+            if (speed < 255) speed += speedStep;
+            if (speed > 255) speed = 255; // Cap the speed at 255
+            if (speed < minSpeed) speed = minSpeed; // Ensure speed is above minimum threshold
+            lastValidKey = val; // Store the last valid key
+
+            digitalWrite(motor1A, LOW);
+            digitalWrite(motor2A, HIGH);
+            ledcWrite(enableA, speed);
             Serial.println("REVERSE");
             break;
-        case 0xFF22DD: 
+        case LEFT: 
             if (currentAngle == maxLeft) break;
             if (currentAngle < maxLeft) currentAngle = maxLeft;
             if (currentAngle > maxLeft) currentAngle -= turnStep;
+            lastValidKey = val; // Store the last valid key
 
             servo1.write(currentAngle);
             Serial.println(currentAngle);
             Serial.println("TURN LEFT");
             lastRepeatTime = millis();
             break;
-        case 0xFFC23D:
+        case RIGHT:
+            if (currentAngle == maxRight) break;
+            if (currentAngle > maxRight) currentAngle = maxRight;
+            if (currentAngle < maxRight) currentAngle += turnStep;
+            lastValidKey = val; // Store the last valid key
+            servo1.write(currentAngle);
+            Serial.println(currentAngle);
             Serial.println("TURN RIGHT");
             lastRepeatTime = millis();
             break;
-        case 0xFF02FD:
-            stop();
+        case STOP:
+            digitalWrite(motor1A, LOW);
+            digitalWrite(motor2A, LOW);
+            ledcWrite(enableA, 0);
             Serial.println("STOP");
             break;
-        case 0xFFFFFFFF:
+        case REPEAT:
             if ((millis() - lastRepeatTime) > repeatInterval) {
                 handleRepeat(lastValidKey);
                 lastRepeatTime = millis();
@@ -143,6 +136,7 @@ void handleCommand(uint64_t result) {
         default:
             Serial.print("Unknown Code: 0x");
             Serial.println(val, HEX);
+            lastValidKey = val; // Store the last valid key
     }
 }
 
