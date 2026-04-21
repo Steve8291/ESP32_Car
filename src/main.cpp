@@ -92,7 +92,7 @@ void handleRepeat(uint32_t key) {
 void handleCommand(uint64_t result) {
     uint32_t val = (uint32_t)result;
     static uint32_t lastValidKey = 0;
-    static unsigned long lastTurnTime = 0;
+    static unsigned long lastRepeatTime = 0;
     static int speed = 0;
 
     if (val != 0xFFFFFFFF) {
@@ -116,21 +116,27 @@ void handleCommand(uint64_t result) {
             Serial.println("REVERSE");
             break;
         case 0xFF22DD: 
+            if (currentAngle == maxLeft) break;
+            if (currentAngle < maxLeft) currentAngle = maxLeft;
+            if (currentAngle > maxLeft) currentAngle -= turnStep;
+
+            servo1.write(currentAngle);
+            Serial.println(currentAngle);
             Serial.println("TURN LEFT");
-            lastTurnTime = millis();
+            lastRepeatTime = millis();
             break;
         case 0xFFC23D:
             Serial.println("TURN RIGHT");
-            lastTurnTime = millis();
+            lastRepeatTime = millis();
             break;
         case 0xFF02FD:
             stop();
             Serial.println("STOP");
             break;
         case 0xFFFFFFFF:
-            if ((millis() - lastTurnTime) > repeatInterval) {
+            if ((millis() - lastRepeatTime) > repeatInterval) {
                 handleRepeat(lastValidKey);
-                lastTurnTime = millis();
+                lastRepeatTime = millis();
             }
             Serial.println("REPEAT");
             break;
