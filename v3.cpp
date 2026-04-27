@@ -8,9 +8,9 @@
 
 
 const uint16_t IR_RECEIVE_PIN = 19;
-const int servoPin = 25;
+const int servoPin = 14;
 int motor1A = 13;
-int motor2A = 26;
+int motor2A = 14;
 int enableA = 27;
 
 const int freq = 20000;
@@ -19,7 +19,7 @@ const int minSpeed = 200; // Minimum speed to ensure the motor starts moving, ad
 const int maxLeft = 117;
 const int maxRight = 150;
 const int center = 133;
-unsigned long repeatInterval = 10; // Time in milliseconds to consider a repeat command as active.
+unsigned long repeatInterval = 1000; // Time in milliseconds to consider a repeat command as active.
 int turnStep = 1; // Step size for turning the servo
 int speedStep = 1; // Step size for adjusting speed
 int currentAngle = 133; // Start at center position
@@ -43,27 +43,23 @@ decode_results results;
 void handleCommand(uint64_t result);  // FORWARD DECLARATION
 
 
-// void handleRepeat(uint32_t key) {
-//     handleCommand(key);
-//     switch (key) {
-//         case FORWARD:
-//             handleCommand(FORWARD);
-//             Serial.println("REPEAT: FORWARD");
-//             break;
-//         case REVERSE:
-//             handleCommand(REVERSE);
-//             Serial.println("REPEAT: REVERSE");
-//             break;
-//         case LEFT:
-//             handleCommand(LEFT);
-//             Serial.println("REPEAT: TURN LEFT");
-//             break;
-//         case RIGHT:
-//             handleCommand(RIGHT);
-//             Serial.println("REPEAT: TURN RIGHT");
-//             break;
-//     }
-// }
+void handleRepeat(uint32_t key) {
+    switch (key) {
+        case FORWARD:
+            handleCommand(FORWARD);
+            Serial.println("REPEAT: FORWARD");
+            break;
+        case REVERSE:
+            Serial.println("REPEAT: REVERSE");
+            break;
+        case LEFT:
+            Serial.println("REPEAT: TURN LEFT");
+            break;
+        case RIGHT:
+            Serial.println("REPEAT: TURN RIGHT");
+            break;
+    }
+}
 
 // Function to decode the value of the IR signal
 void handleCommand(uint64_t result) {
@@ -132,8 +128,7 @@ void handleCommand(uint64_t result) {
             break;
         case REPEAT:
             if ((millis() - lastRepeatTime) > repeatInterval) {
-                handleCommand(lastValidKey);
-                // handleRepeat(lastValidKey);
+                handleRepeat(lastValidKey);
                 lastRepeatTime = millis();
             }
             Serial.println("REPEAT");
@@ -153,11 +148,11 @@ void setup() {
     irrecv.enableIRIn();
     Serial.println("IR Receiver Initialized...");
 
-    // pinMode(motor1A, OUTPUT);
-    // pinMode(motor2A, OUTPUT);
+    pinMode(motor1A, OUTPUT);
+    pinMode(motor2A, OUTPUT);
 
-    // ledcAttach(enableA, freq, resolution);
-    // ledcWrite(enableA, 0);
+    ledcAttach(enableA, freq, resolution);
+    ledcWrite(enableA, 0);
 
     servo1.attach(servoPin);
     servo1.write(133); // Center position
