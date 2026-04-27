@@ -40,41 +40,23 @@ IRrecv irrecv(IR_RECEIVE_PIN);
 // Create a decode_results object
 decode_results results;
 
-void handleCommand(uint64_t result);  // FORWARD DECLARATION
-
-
-// void handleRepeat(uint32_t key) {
-//     handleCommand(key);
-//     switch (key) {
-//         case FORWARD:
-//             handleCommand(FORWARD);
-//             Serial.println("REPEAT: FORWARD");
-//             break;
-//         case REVERSE:
-//             handleCommand(REVERSE);
-//             Serial.println("REPEAT: REVERSE");
-//             break;
-//         case LEFT:
-//             handleCommand(LEFT);
-//             Serial.println("REPEAT: TURN LEFT");
-//             break;
-//         case RIGHT:
-//             handleCommand(RIGHT);
-//             Serial.println("REPEAT: TURN RIGHT");
-//             break;
-//     }
-// }
 
 // Function to decode the value of the IR signal
 void handleCommand(uint64_t result) {
     uint32_t val = (uint32_t)result;
     static uint32_t lastValidKey = 0;
-    static unsigned long lastRepeatTime = 0;
+    static unsigned long lastExecutionTime = 0;
     static int speed = 0;
 
-    // if (val != REPEAT) {
-    //     lastValidKey = val; // Store the last valid key
-    // }
+
+    if (val == REPEAT) {
+            val = lastValidKey;
+        } else {
+            lastValidKey = val;
+        }
+
+    if (millis() - lastExecutionTime < 50) return;
+        lastExecutionTime = millis();
 
     switch(val) {
         case FORWARD:
@@ -83,12 +65,12 @@ void handleCommand(uint64_t result) {
             if (speed < 255) speed += speedStep;
             if (speed > 255) speed = 255; // Cap the speed at 255
             if (speed < minSpeed) speed = minSpeed; // Ensure speed is above minimum threshold
-            lastValidKey = val; // Store the last valid key
 
             digitalWrite(motor1A, HIGH);
             digitalWrite(motor2A, LOW);
             ledcWrite(enableA, speed);
-            Serial.println("FORWARD");
+            Serial.print("FORWARD: ");
+            Serial.println(speed);
             break;
         case REVERSE:
             if (lastValidKey == FORWARD) speed = minSpeed; // Direction change
@@ -96,33 +78,29 @@ void handleCommand(uint64_t result) {
             if (speed < 255) speed += speedStep;
             if (speed > 255) speed = 255; // Cap the speed at 255
             if (speed < minSpeed) speed = minSpeed; // Ensure speed is above minimum threshold
-            lastValidKey = val; // Store the last valid key
 
             digitalWrite(motor1A, LOW);
             digitalWrite(motor2A, HIGH);
             ledcWrite(enableA, speed);
-            Serial.println("REVERSE");
+            Serial.print("REVERSE: ");
+            Serial.println(speed);
             break;
         case LEFT: 
             if (currentAngle == maxLeft) break;
             if (currentAngle < maxLeft) currentAngle = maxLeft;
             if (currentAngle > maxLeft) currentAngle -= turnStep;
-            lastValidKey = val; // Store the last valid key
 
             servo1.write(currentAngle);
+            Serial.print("LEFT: ");
             Serial.println(currentAngle);
-            Serial.println("TURN LEFT");
-            lastRepeatTime = millis();
             break;
         case RIGHT:
             if (currentAngle == maxRight) break;
             if (currentAngle > maxRight) currentAngle = maxRight;
             if (currentAngle < maxRight) currentAngle += turnStep;
-            lastValidKey = val; // Store the last valid key
             servo1.write(currentAngle);
+            Serial.print("RIGHT: ");
             Serial.println(currentAngle);
-            Serial.println("TURN RIGHT");
-            lastRepeatTime = millis();
             break;
         case STOP:
             digitalWrite(motor1A, LOW);
@@ -130,37 +108,39 @@ void handleCommand(uint64_t result) {
             ledcWrite(enableA, 0);
             Serial.println("STOP");
             break;
-        case REPEAT:
-            if ((millis() - lastRepeatTime) > repeatInterval) {
-                handleCommand(lastValidKey);
-                // handleRepeat(lastValidKey);
-                lastRepeatTime = millis();
-            }
-            Serial.println("REPEAT");
-            break;
         default:
             Serial.print("Unknown Code: 0x");
             Serial.println(val, HEX);
-            lastValidKey = val; // Store the last valid key
     }
 }
 
 void setup() {
-    // Start serial communication
     Serial.begin(115200);
 
-    // Start the IR receiver
+    // CLEAR ALL TIMERS FIRST
+    ESP32PWM::allocateTimer(0);
+    ESP32PWM::allocateTimer(1);
+    ESP32PWM::allocateTimer(2);
+    ESP32PWM::allocateTimer(3);
+
+    // INITIALIZE SERVO FIRST (Force it to grab its resources before LEDC starts)
+    servo1.setPeriodHertz(50); 
+    // We attach it here. If this fails, nothing else will work.
+    if (!servo1.attach(servoPin, 500, 2400)) {
+        Serial.println("Servo attach failed!");
+    }
+    servo1.write(center);
+
+    // INITIALIZE MOTORS WITH A SPECIFIC CHANNEL
+    pinMode(motor1A, OUTPUT);
+    pinMode(motor2A, OUTPUT);
+    
+    ledcAttach(enableA, freq, resolution);
+    ledcWrite(enableA, 0);
+
+    // INITIALIZE IR
     irrecv.enableIRIn();
     Serial.println("IR Receiver Initialized...");
-
-    // pinMode(motor1A, OUTPUT);
-    // pinMode(motor2A, OUTPUT);
-
-    // ledcAttach(enableA, freq, resolution);
-    // ledcWrite(enableA, 0);
-
-    servo1.attach(servoPin);
-    servo1.write(133); // Center position
 }
 
 void loop() {
