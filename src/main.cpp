@@ -10,7 +10,7 @@
 const uint16_t IR_RECEIVE_PIN = 19;
 const int servoPin = 25;
 int motor1A = 13;
-int motor2A = 26;
+int motor2A = 14;
 int enableA = 27;
 
 const int freq = 20000;
